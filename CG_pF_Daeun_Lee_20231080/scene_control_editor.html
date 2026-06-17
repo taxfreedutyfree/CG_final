@@ -1,0 +1,400 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>scene_control_editor</title>
+  <style>
+    @font-face {
+      font-family: "DS Digi";
+      src: url("./DS-DIGIB.TTF") format("truetype");
+      font-display: swap;
+    }
+
+    :root {
+      --bg-top: #eef3ff;
+      --bg-bottom: #d6dfef;
+      --panel-bg: rgba(12, 22, 40, 0.34);
+      --panel-border: rgba(104, 182, 255, 0.26);
+      --panel-text: rgba(228, 244, 255, 0.94);
+      --panel-accent: #79d3ff;
+      --clock-color: rgba(232, 229, 224, 0.72);
+      --clock-glow: rgba(0, 0, 0, 0.72);
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.72), transparent 32%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .controls {
+      position: fixed;
+      left: 16px;
+      top: 16px;
+      z-index: 20;
+      width: min(320px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      padding: 14px 16px;
+      color: var(--panel-text);
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 18px 50px rgba(10, 28, 56, 0.18), inset 0 0 18px rgba(96, 198, 255, 0.08);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .controls label {
+      display: block;
+      margin-bottom: 12px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+
+    .value {
+      color: var(--panel-accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .section-title {
+      margin: 8px 0 10px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .controls input,
+    .controls select,
+    .controls button,
+    .controls textarea {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .controls input[type="range"] {
+      accent-color: var(--panel-accent);
+    }
+
+    .controls select,
+    .controls button,
+    .controls textarea {
+      color: var(--panel-text);
+      background: rgba(8, 24, 48, 0.34);
+      border: 1px solid rgba(109, 188, 255, 0.22);
+      padding: 7px 8px;
+      font: inherit;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .controls button {
+      cursor: pointer;
+    }
+
+    .controls textarea {
+      height: 96px;
+      resize: vertical;
+    }
+
+    .focus-clock {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 50;
+      display: none;
+      pointer-events: none;
+      user-select: none;
+      transform: translate(-50%, -100%);
+      transform-origin: center bottom;
+      text-align: center;
+    }
+
+    .focus-clock-time,
+    .focus-clock-ampm {
+      font-family: "DS Digi", monospace;
+      color: var(--clock-color);
+      text-shadow: 0 0 12px var(--clock-glow), 0 0 28px rgba(52, 176, 255, 0.28);
+      opacity: 0.92;
+    }
+
+    .focus-clock-row {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 0.25em;
+      padding: 4px 8px 2px;
+      background: rgba(7, 16, 28, 0.18);
+      border-radius: 6px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .focus-clock-time {
+      font-size: clamp(18px, 2.1vw, 34px);
+      line-height: 0.9;
+      letter-spacing: 0.08em;
+    }
+
+    .focus-clock-ampm {
+      padding-top: 0.55em;
+      font-size: clamp(9px, 0.9vw, 15px);
+      letter-spacing: 0.15em;
+    }
+
+    .focus-clock-triangle {
+      width: 0;
+      height: 0;
+      margin: 4px auto 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 12px solid rgba(255, 58, 58, 0.96);
+      filter: drop-shadow(0 0 8px rgba(255, 58, 58, 0.3));
+    }
+
+    .controls .row span,
+    .controls .value,
+    .section-title,
+    .controls button,
+    .controls select,
+    .controls textarea {
+      text-shadow: 0 0 8px rgba(73, 215, 255, 0.18);
+    }
+
+    .controls input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      color: var(--panel-text);
+      background: rgba(8, 24, 48, 0.34);
+      border: 1px solid rgba(109, 188, 255, 0.22);
+      padding: 7px 8px;
+      font: inherit;
+      text-shadow: 0 0 8px rgba(73, 215, 255, 0.18);
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <div class="section-title">Camera</div>
+    <label>
+      <div class="row"><span>Camera</span><span class="value" id="camera-mode-label">Orthographic</span></div>
+      <select id="camera-mode">
+        <option value="perspective">Perspective</option>
+        <option value="orthographic" selected>Orthographic</option>
+      </select>
+    </label>
+    <label>
+      <div class="row"><span>Lens</span><span class="value" id="lens-value">45</span></div>
+      <input id="lens-slider" type="range" min="18" max="90" step="1" value="45" />
+    </label>
+    <label>
+      <div class="row"><span>Camera Height</span><span class="value" id="camera-height-value">90</span></div>
+      <input id="camera-height" type="range" min="-20" max="260" step="1" value="90" />
+    </label>
+    <label>
+      <div class="row"><span>Focus Height</span><span class="value" id="focus-height-value">18</span></div>
+      <input id="focus-height" type="range" min="-40" max="220" step="1" value="18" />
+    </label>
+    <label>
+      <div class="row"><span>Focus Screen Y</span><span class="value" id="focus-screen-y-value">0.00</span></div>
+      <input id="focus-screen-y" type="range" min="-120" max="120" step="1" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Clip Start</span><span class="value" id="camera-clip-start-value">0.03</span></div>
+      <input id="camera-clip-start" type="range" min="0.01" max="40" step="0.01" value="0.03" />
+    </label>
+
+    <label>
+      <div class="row"><span>Focus Dist Min</span><span class="value" id="focus-dist-min-value">88.00</span></div>
+      <input id="focus-dist-min" type="range" min="20" max="220" step="1" value="88" />
+    </label>
+    <label>
+      <div class="row"><span>Focus Dist Max</span><span class="value" id="focus-dist-max-value">132.00</span></div>
+      <input id="focus-dist-max" type="range" min="30" max="260" step="1" value="132" />
+    </label>
+    <label>
+      <div class="row"><span>Ortho Zoom Min</span><span class="value" id="ortho-zoom-min-value">4.80</span></div>
+      <input id="ortho-zoom-min" type="range" min="1" max="14" step="0.1" value="4.8" />
+    </label>
+    <label>
+      <div class="row"><span>Ortho Zoom Max</span><span class="value" id="ortho-zoom-max-value">8.50</span></div>
+      <input id="ortho-zoom-max" type="range" min="1.5" max="18" step="0.1" value="8.5" />
+    </label>
+    <label>
+      <div class="row"><span>Focus Lift</span><span class="value" id="focus-lift-value">6.00</span></div>
+      <input id="focus-lift" type="range" min="0" max="30" step="0.1" value="6" />
+    </label>
+    <label>
+      <div class="row"><span>Clock Size</span><span class="value" id="clock-scale-value">1.00</span></div>
+      <input id="clock-scale" type="range" min="0.4" max="2.5" step="0.01" value="1" />
+    </label>
+    <label>
+      <div class="row"><span>Arrow Y</span><span class="value" id="marker-arrow-y-value">0.00</span></div>
+      <input id="marker-arrow-y" type="range" min="-80" max="80" step="1" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Lower Fog</span><span class="value" id="lower-fog-value">0.42</span></div>
+      <input id="lower-fog" type="range" min="0" max="1" step="0.01" value="0.42" />
+    </label>
+    <label>
+      <div class="row"><span>Fog Tone</span><span class="value" id="lower-fog-color-value">235,238,248</span></div>
+      <input id="lower-fog-color" type="color" value="#e9eef8" />
+    </label>
+    <label>
+      <div class="row"><span>Shadow Angle</span><span class="value" id="shadow-angle-value">36.9 deg</span></div>
+      <input id="shadow-angle" type="range" min="-180" max="180" step="1" value="37" />
+    </label>
+    <div class="button-row">
+      <button id="save-camera" type="button">Save Camera</button>
+      <button id="clear-camera" type="button">Clear Camera</button>
+    </div>
+    <textarea id="camera-data" readonly placeholder="Saved camera JSON"></textarea>
+
+    <div class="section-title">Map</div>
+    <label>
+      <div class="row"><span>Grid Size</span><span class="value" id="grid-size-value">5 x 5</span></div>
+      <input id="grid-size" type="range" min="5" max="25" step="1" value="5" />
+    </label>
+    <label>
+      <div class="row"><span>Pillar Spacing</span><span class="value" id="cell-spacing-value">20.00</span></div>
+      <input id="cell-spacing" type="range" min="8" max="30" step="0.5" value="20" />
+    </label>
+
+    <div class="section-title">Pillar</div>
+    <label>
+      <div class="row"><span>Rock Scale</span><span class="value" id="rock-scale-value">1.00</span></div>
+      <input id="rock-scale" type="range" min="0.15" max="3" step="0.01" value="1" />
+    </label>
+    <label>
+      <div class="row"><span>Random Min</span><span class="value" id="random-min-value">0.70</span></div>
+      <input id="random-min" type="range" min="0.7" max="1" step="0.01" value="0.7" />
+    </label>
+    <label>
+      <div class="row"><span>Vertical Gap</span><span class="value" id="spacing-value">2.60</span></div>
+      <input id="spacing" type="range" min="1" max="6" step="0.05" value="2.6" />
+    </label>
+    <label>
+      <div class="row"><span>Max Points</span><span class="value" id="pillar-max-value">10</span></div>
+      <input id="pillar-max" type="range" min="10" max="20" step="1" value="10" />
+    </label>
+    <label>
+      <div class="row"><span>Rotation Max</span><span class="value" id="rotation-max-value">180 deg</span></div>
+      <input id="rotation-max" type="range" min="0" max="180" step="1" value="180" />
+    </label>
+    <label>
+      <div class="row"><span>Noise</span><span class="value" id="noise-value">0.00</span></div>
+      <input id="noise" type="range" min="0" max="8" step="0.01" value="0" />
+    </label>
+
+    <div class="section-title">Stair</div>
+    <label>
+      <div class="row"><span>Offset X</span><span class="value" id="stair-inset-value">4.00</span></div>
+      <input id="stair-inset" type="range" min="0" max="12" step="0.1" value="4" />
+    </label>
+    <label>
+      <div class="row"><span>Y Offset</span><span class="value" id="stair-y-value">0.00</span></div>
+      <input id="stair-y" type="range" min="-4" max="4" step="0.05" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Offset Z</span><span class="value" id="stair-z-value">0.00</span></div>
+      <input id="stair-z" type="range" min="-6" max="6" step="0.05" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Stair Count</span><span class="value" id="stair-count-value">8</span></div>
+      <input id="stair-count" type="range" min="2" max="40" step="1" value="8" />
+    </label>
+    <label>
+      <div class="row"><span>Stair Height</span><span class="value" id="stair-height-value">0.28</span></div>
+      <input id="stair-height" type="range" min="0.05" max="3" step="0.01" value="0.28" />
+    </label>
+    <label>
+      <div class="row"><span>Stair Noise</span><span class="value" id="stair-noise-value">0 deg</span></div>
+      <input id="stair-noise" type="range" min="0" max="180" step="1" value="0" />
+    </label>
+
+    
+
+    <div class="section-title">Route</div>
+    <label>
+      <div class="row"><span>Pillar Top Y</span><span class="value" id="route-top-y-value">0.00</span></div>
+      <input id="route-top-y" type="range" min="-6" max="6" step="0.05" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Route X</span><span class="value" id="route-x-value">0.00</span></div>
+      <input id="route-x" type="range" min="-6" max="6" step="0.05" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Route Y</span><span class="value" id="route-y-value">0.00</span></div>
+      <input id="route-y" type="range" min="-6" max="6" step="0.05" value="0" />
+    </label>
+    <label>
+      <div class="row"><span>Route Z</span><span class="value" id="route-z-value">0.00</span></div>
+      <input id="route-z" type="range" min="-6" max="6" step="0.05" value="0" />
+    </label>
+
+    <div class="section-title">Chicken</div>
+    <label>
+      <div class="row"><span>Chicken Count</span><span class="value" id="chicken-count-value">12</span></div>
+      <input id="chicken-count" type="number" min="1" max="80" step="1" value="12" />
+    </label>
+    <label>
+      <div class="row"><span>Chicken Scale</span><span class="value" id="chicken-scale-value">3.00</span></div>
+      <input id="chicken-scale" type="range" min="0.25" max="12" step="0.01" value="3" />
+    </label>
+    <label>
+      <div class="row"><span>Anim Speed</span><span class="value" id="chicken-anim-speed-value">1.00</span></div>
+      <input id="chicken-anim-speed" type="range" min="0.1" max="3" step="0.01" value="1" />
+    </label>
+    <label>
+      <div class="row"><span>Pivot Y</span><span class="value" id="chicken-pivot-y-value">0.00</span></div>
+      <input id="chicken-pivot-y" type="range" min="-20" max="20" step="0.01" value="0" />
+    </label>
+
+    <div class="section-title">Settings</div>
+    <div class="button-row">
+      <button id="save-settings" type="button">Save Settings</button>
+      <button id="clear-settings" type="button">Clear Settings</button>
+    </div>
+    <textarea id="settings-data" readonly placeholder="Saved map settings JSON"></textarea>
+  </div>
+
+  <div class="focus-clock" id="focus-clock">
+    <div class="focus-clock-row">
+      <div class="focus-clock-time" id="focus-clock-time">00:00</div>
+      <div class="focus-clock-ampm" id="focus-clock-ampm">AM</div>
+    </div>
+    <div class="focus-clock-triangle"></div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="./scene_control_editor.js"></script>
+</body>
+</html>
